@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { db } from '../utils/db';
 import { SchoolProfile, ClassRombel, Teacher, Student } from '../types';
+import { fetchAllFromSupabase } from '../utils/supabase';
 import { 
   Building2, 
   Users, 
@@ -12,7 +13,10 @@ import {
   Upload,
   CalendarDays,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  RefreshCw,
+  Cloud,
+  Database
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -21,6 +25,35 @@ export default function AdminDashboard() {
   const [teachers] = useState<Teacher[]>(db.getTeachers());
   const [students] = useState<Student[]>(db.getStudents());
   const [attendance] = useState(db.getAttendance());
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState('');
+  const [refreshError, setRefreshError] = useState(false);
+
+  const handleSupabaseRefresh = async () => {
+    setIsRefreshing(true);
+    setRefreshError(false);
+    setRefreshMessage('Harap tunggu, sedang mengunduh data terbaru dari Supabase...');
+    try {
+      const success = await fetchAllFromSupabase();
+      if (success) {
+        setRefreshMessage('Penyelarasan berhasil! Sistem memuat data terbaru dari Supabase...');
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      } else {
+        setRefreshError(true);
+        setRefreshMessage('Gagal menyinkronkan data. Pastikan tabel "absensi_sync" sudah diatur di Supabase Anda.');
+        setTimeout(() => setRefreshMessage(''), 5500);
+      }
+    } catch (err) {
+      setRefreshError(true);
+      setRefreshMessage('Koneksi terputus atau terjadi kesalahan sistem.');
+      setTimeout(() => setRefreshMessage(''), 4000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Statistics calculation
   const totalClasses = classes.length;
@@ -99,6 +132,34 @@ export default function AdminDashboard() {
           Kelola profil sekolah dasar, pantau statistik rombongan belajar, verifikasi rekap guru, dan unduh backup data secara real-time.
         </p>
       </div>
+
+      {/* Supabase Sync Controls */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+            <Database size={20} />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-slate-800">Sinkronisasi Database Supabase</h3>
+            <p className="text-[11px] text-slate-500 font-medium">Ambil, selaraskan, dan unduh database profil & presensi guru dari Supabase utama</p>
+          </div>
+        </div>
+        <button
+          onClick={handleSupabaseRefresh}
+          disabled={isRefreshing}
+          className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 shadow-sm disabled:bg-slate-300 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+        >
+          <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+          {isRefreshing ? 'Menyinkronkan...' : 'Sinkronkan Sekarang'}
+        </button>
+      </div>
+
+      {refreshMessage && (
+        <div className={`p-4 rounded-xl text-xs font-bold leading-relaxed flex items-center gap-2.5 ${refreshError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+          {refreshError ? <AlertCircle size={16} className="text-red-500" /> : <CheckCircle2 size={16} className="text-emerald-500" />}
+          <span>{refreshMessage}</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}

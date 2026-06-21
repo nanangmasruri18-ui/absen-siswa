@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { db } from '../utils/db';
 import { UserSession, Student } from '../types';
+import { fetchAllFromSupabase } from '../utils/supabase';
 import { 
   UserSquare, 
   Users, 
@@ -9,7 +10,11 @@ import {
   Activity, 
   ThumbsUp, 
   ShieldAlert,
-  CalendarCheck2
+  CalendarCheck2,
+  Database,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 interface GuruDashboardProps {
@@ -22,6 +27,35 @@ export default function GuruDashboard({ session, setActiveTab }: GuruDashboardPr
   const teachers = db.getTeachers();
   const currentTeacher = teachers.find((t) => t.id === session.userId);
   const classes = db.getClasses();
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState('');
+  const [refreshError, setRefreshError] = useState(false);
+
+  const handleSupabaseRefresh = async () => {
+    setIsRefreshing(true);
+    setRefreshError(false);
+    setRefreshMessage('Harap tunggu, sedang mengunduh data kelas & absensi terbaru dari Supabase...');
+    try {
+      const success = await fetchAllFromSupabase();
+      if (success) {
+        setRefreshMessage('Penyelarasan berhasil! Sistem memuat data terbaru dari Supabase...');
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      } else {
+        setRefreshError(true);
+        setRefreshMessage('Gagal menyinkronkan data. Pastikan tabel "absensi_sync" sudah diatur di Supabase Anda.');
+        setTimeout(() => setRefreshMessage(''), 5500);
+      }
+    } catch (err) {
+      setRefreshError(true);
+      setRefreshMessage('Koneksi terputus atau terjadi kesalahan sistem.');
+      setTimeout(() => setRefreshMessage(''), 4000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   
   // Find assigned class
   const assignedClass = classes.find((c) => c.id === currentTeacher?.assignedClassId);
@@ -59,6 +93,34 @@ export default function GuruDashboard({ session, setActiveTab }: GuruDashboardPr
           Gunakan dasbor ini untuk mengelola lembar kehadiran harian siswa, memantau absensi siswa hari ini, dan mengunduh laporan rekapitulasi kelas Anda.
         </p>
       </div>
+
+      {/* Supabase Sync Controls */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+            <Database size={20} />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-slate-800">Sinkronisasi Database Supabase</h3>
+            <p className="text-[11px] text-slate-500 font-medium">Ambil, selaraskan, dan unduh data kehadiran serta profil siswa terbaru dari Supabase</p>
+          </div>
+        </div>
+        <button
+          onClick={handleSupabaseRefresh}
+          disabled={isRefreshing}
+          className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 shadow-sm disabled:bg-slate-300 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+        >
+          <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+          {isRefreshing ? 'Menyinkronkan...' : 'Sinkronkan Sekarang'}
+        </button>
+      </div>
+
+      {refreshMessage && (
+        <div className={`p-4 rounded-xl text-xs font-bold leading-relaxed flex items-center gap-2.5 ${refreshError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+          {refreshError ? <AlertCircle size={16} className="text-red-500" /> : <CheckCircle2 size={16} className="text-emerald-500" />}
+          <span>{refreshMessage}</span>
+        </div>
+      )}
 
       {!assignedClass ? (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-amber-800 flex items-start gap-4">
