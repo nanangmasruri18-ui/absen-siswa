@@ -27,9 +27,17 @@ export default function RekapSemester({ session }: RekapSemesterProps) {
     : (session.assignedClassId || '');
 
   // Filter states
+  const currentMonthNum = new Date().getMonth() + 1; // 1-indexed (Jan is 1, June is 6, Dec is 12)
+  const defaultSemester = (currentMonthNum >= 7 && currentMonthNum <= 12) ? 'Ganjil' : 'Genap';
+
+  const currentYearNum = new Date().getFullYear();
+  const defaultAcademicYear = currentMonthNum >= 7
+    ? `${currentYearNum}/${currentYearNum + 1}`
+    : `${currentYearNum - 1}/${currentYearNum}`;
+
   const [selectedClassId, setSelectedClassId] = useState(defaultClassId);
-  const [semester, setSemester] = useState('Ganjil'); // Ganjil (Odd) or Genap (Even)
-  const [academicYear, setAcademicYear] = useState('2025/2026'); // Academic calendar year
+  const [semester, setSemester] = useState(defaultSemester); // Dynamic default based on month
+  const [academicYear, setAcademicYear] = useState(defaultAcademicYear); // Dynamic default based on year
   const [searchTerm, setSearchTerm] = useState('');
 
   // Loaded data
@@ -54,8 +62,8 @@ export default function RekapSemester({ session }: RekapSemesterProps) {
     // Filter year from academicYear (e.g. "2025/2026" Ganjil -> July-Dec 2025; Genap -> Jan-June 2026)
     const yearParts = academicYear.split('/');
     const filterYear = semester === 'Ganjil' 
-      ? parseInt(yearParts[0]) // 2025
-      : parseInt(yearParts[1]); // 2026
+      ? parseInt(yearParts[0], 10) // 2025
+      : parseInt(yearParts[1], 10); // 2026
 
     // Months indexes
     // Ganjil: Jul (6) to Dec (11)
@@ -67,14 +75,15 @@ export default function RekapSemester({ session }: RekapSemesterProps) {
     const allAttendances = db.getAttendance().filter((a) => {
       if (a.classId !== selectedClassId) return false;
       const dateParts = a.date.split('-'); // YYYY-MM-DD
-      const y = parseInt(dateParts[0]);
-      const m = parseInt(dateParts[1]); // 1-indexed month
+      const y = parseInt(dateParts[0], 10);
+      const m = parseInt(dateParts[1], 10); // 1-indexed month
       
       return y === filterYear && m >= startMonth && m <= endMonth;
     });
 
     // Populate rows
     let totalClassPercentageSum = 0;
+    let totalActiveRecords = 0;
     const computedGrid = classStudentsList.map((student, idx) => {
       const studentRecords = allAttendances.filter((a) => a.studentId === student.id);
       
@@ -85,10 +94,12 @@ export default function RekapSemester({ session }: RekapSemesterProps) {
         A: studentRecords.filter((r) => r.status === 'A').length,
       };
 
-      const totalActiveSession = studentRecords.length;
+      const totalActiveSession = count.H + count.S + count.I + count.A;
+      totalActiveRecords += totalActiveSession;
+
       const percentageScore = totalActiveSession > 0
         ? Math.round((count.H / totalActiveSession) * 100)
-        : 100; // default 100% if no records yet
+        : 0; // default 0% if no records yet
 
       totalClassPercentageSum += percentageScore;
 
@@ -110,9 +121,9 @@ export default function RekapSemester({ session }: RekapSemesterProps) {
     setSemesterRows(computedGrid);
 
     // Average attendance
-    const avg = classStudentsList.length > 0
+    const avg = (classStudentsList.length > 0 && totalActiveRecords > 0)
       ? Math.round(totalClassPercentageSum / classStudentsList.length)
-      : 100;
+      : 0;
     setClassAveragePercentage(avg);
 
   }, [selectedClassId, semester, academicYear]);
@@ -136,12 +147,19 @@ export default function RekapSemester({ session }: RekapSemesterProps) {
     if (!selectedClassId || semesterRows.length === 0) return;
     const targetClass = classes.find(c => c.id === selectedClassId);
 
+    // Find teacher name and NIP of this class
+    const teachersList = db.getTeachers();
+    const classTeacher = teachersList.find(t => t.assignedClassId === selectedClassId)
+      || teachersList.find(t => t.id === targetClass?.homeroomTeacherId);
+
     generateSemesterPDF({
       school,
       className: targetClass?.name || 'Kelas',
       semester,
       academicYear,
-      rows: semesterRows
+      rows: semesterRows,
+      homeroomTeacherName: classTeacher?.name || '',
+      homeroomTeacherNip: classTeacher?.nip || ''
     });
   };
 

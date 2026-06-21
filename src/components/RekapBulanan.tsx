@@ -122,14 +122,16 @@ export default function RekapBulanan({ session }: RekapBulananProps) {
     if (!selectedClassId || students.length === 0) return;
     const targetClass = classes.find(c => c.id === selectedClassId);
     
-    // Find teacher name of this class
+    // Find teacher name and NIP of this class
     const teachersList = db.getTeachers();
-    const classTeacher = teachersList.find(t => t.assignedClassId === selectedClassId);
+    const classTeacher = teachersList.find(t => t.assignedClassId === selectedClassId)
+      || teachersList.find(t => t.id === targetClass?.homeroomTeacherId);
 
     generateMonthlyPDF({
       school,
       className: targetClass?.name || 'Kelas',
       homeroomTeacherName: classTeacher?.name || '',
+      homeroomTeacherNip: classTeacher?.nip || '',
       monthName: months[selectedMonth],
       monthIndex: selectedMonth,
       year: selectedYear,

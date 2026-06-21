@@ -9,6 +9,7 @@ export function generateMonthlyPDF({
   school,
   className,
   homeroomTeacherName,
+  homeroomTeacherNip,
   monthName,
   monthIndex, // 0-indexed
   year,
@@ -20,6 +21,7 @@ export function generateMonthlyPDF({
   school: { name: string; address: string; npsn: string };
   className: string;
   homeroomTeacherName: string;
+  homeroomTeacherNip?: string;
   monthName: string;
   monthIndex: number;
   year: number;
@@ -205,7 +207,8 @@ export function generateMonthlyPDF({
   const teacherLabel = homeroomTeacherName || '( ............................................... )';
   doc.text(teacherLabel, textX, signatureSpaceY + 25);
   doc.setFont('Helvetica', 'normal');
-  doc.text('NIP. ...............................................', textX, signatureSpaceY + 29);
+  const nipLabel = homeroomTeacherNip ? `NIP. ${homeroomTeacherNip}` : 'NIP. ...............................................';
+  doc.text(nipLabel, textX, signatureSpaceY + 29);
 
   // Preview before download (we can save it)
   doc.save(`Absensi_Siswa_Bulanan_${className.replace(' ', '_')}_${monthName}_${year}.pdf`);
@@ -219,7 +222,9 @@ export function generateSemesterPDF({
   className,
   semester,
   academicYear,
-  rows
+  rows,
+  homeroomTeacherName,
+  homeroomTeacherNip
 }: {
   school: { name: string; address: string; npsn: string };
   className: string;
@@ -236,6 +241,8 @@ export function generateSemesterPDF({
     alfa: number;
     persentase: string;
   }>;
+  homeroomTeacherName?: string;
+  homeroomTeacherNip?: string;
 }) {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -314,9 +321,11 @@ export function generateSemesterPDF({
   doc.text('Guru Kelas / Wali Kelas,', textX, signatureSpaceY + 5);
 
   doc.setFont('Helvetica', 'bold');
-  doc.text('( ............................................... )', textX, signatureSpaceY + 25);
+  const teacherLabel = homeroomTeacherName || '( ............................................... )';
+  doc.text(teacherLabel, textX, signatureSpaceY + 25);
   doc.setFont('Helvetica', 'normal');
-  doc.text('NIP. ...............................................', textX, signatureSpaceY + 29);
+  const nipLabel = homeroomTeacherNip ? `NIP. ${homeroomTeacherNip}` : 'NIP. ...............................................';
+  doc.text(nipLabel, textX, signatureSpaceY + 29);
 
   doc.save(`Absensi_Siswa_Semester_${className.replace(' ', '_')}_Semester_${semester.replace(' ', '_')}.pdf`);
 }
