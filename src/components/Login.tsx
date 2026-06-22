@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
 import { db, encryptPassword } from '../utils/db';
 import { UserSession } from '../types';
-import { School, User, Lock, Eye, EyeOff, LogIn, ShieldCheck } from 'lucide-react';
+import { fetchAllFromSupabase } from '../utils/supabase';
+import { 
+  School, 
+  User, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  LogIn, 
+  ShieldCheck, 
+  Database, 
+  RefreshCw, 
+  CheckCircle2, 
+  AlertCircle 
+} from 'lucide-react';
 
 interface LoginProps {
   onLoginSuccess: (session: UserSession) => void;
@@ -13,6 +26,35 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState('');
+  const [refreshError, setRefreshError] = useState(false);
+
+  const handleSupabaseRefresh = async () => {
+    setIsRefreshing(true);
+    setRefreshError(false);
+    setRefreshMessage('Sedang mengunduh data terbaru dari database Supabase Anda...');
+    try {
+      const success = await fetchAllFromSupabase();
+      if (success) {
+        setRefreshMessage('Sinkronisasi Berhasil! Memuat ulang data sistem...');
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      } else {
+        setRefreshError(true);
+        setRefreshMessage('Sinkronisasi Gagal. Harap cek koneksi internet atau konfigurasikan tabel Supabase Anda.');
+        setTimeout(() => setRefreshMessage(''), 6000);
+      }
+    } catch (err) {
+      setRefreshError(true);
+      setRefreshMessage('Terjadi kesalahan saat menyelaraskan dengan Supabase.');
+      setTimeout(() => setRefreshMessage(''), 4000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +194,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             </div>
           </form>
 
-          <div className="mt-6 border-t border-slate-100 pt-6">
+          <div className="mt-6 border-t border-slate-100 pt-6 space-y-4">
             <div className="rounded-lg bg-slate-50 p-3 border border-slate-100 flex items-start gap-2.5 text-xs text-slate-600">
               <ShieldCheck className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
               <div>
@@ -163,6 +205,35 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 </div>
               </div>
             </div>
+
+            {/* Supabase Sync Button for Login Page */}
+            <div className="rounded-lg bg-blue-50/50 p-3.5 border border-blue-100/60 text-xs">
+              <div className="flex items-start gap-2.5 text-blue-800">
+                <Database className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold text-slate-800">Sinkronisasi Database Supabase</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500 leading-normal font-medium">
+                    Sinkronkan dan unduh data profil sekolah, guru, serta kehadiran siswa dari database Supabase sebelum Anda masuk.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSupabaseRefresh}
+                    disabled={isRefreshing}
+                    className="mt-3 w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-lg text-[11px] flex items-center justify-center gap-2 transition disabled:bg-slate-300 disabled:cursor-not-allowed shadow-sm shadow-blue-100 cursor-pointer"
+                  >
+                    <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+                    {isRefreshing ? 'Menyinkronkan...' : 'Sinkronkan Sekarang'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {refreshMessage && (
+              <div className={`p-3 rounded-lg text-xs font-bold leading-relaxed flex items-center gap-2 ${refreshError ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+                {refreshError ? <AlertCircle size={14} className="text-red-500 shrink-0" /> : <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />}
+                <span className="text-[11px] font-semibold">{refreshMessage}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
